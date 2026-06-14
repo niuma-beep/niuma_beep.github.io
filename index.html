@@ -1,338 +1,683 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>ESP32 Remote Monitor</title>
+  <title>ESP32 智能设备控制台</title>
   <style>
     :root {
-      --bg: #f4f7fb;
-      --panel: #ffffff;
-      --panel-soft: #f8fafc;
+      --bg: #eef3f8;
+      --surface: #ffffff;
+      --surface-soft: #f7fafc;
+      --surface-strong: #eef4f8;
       --text: #111827;
       --muted: #667085;
-      --line: #d8e0ea;
-      --accent: #0f766e;
-      --accent-strong: #115e59;
-      --warn: #b45309;
-      --bad: #b91c1c;
-      --ok: #15803d;
+      --line: #d7e1ea;
+      --brand: #0f766e;
+      --brand-strong: #115e59;
       --blue: #2563eb;
-      --shadow: 0 10px 28px rgba(15, 23, 42, .08);
+      --orange: #d97706;
+      --green: #15803d;
+      --red: #b91c1c;
+      --shadow: 0 10px 26px rgba(17, 24, 39, .08);
     }
+
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       min-height: 100vh;
       background: var(--bg);
       color: var(--text);
-      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
     }
+
     button, input { font: inherit; }
-    .app {
-      width: min(1180px, 100%);
-      margin: 0 auto;
-      padding: 16px;
-    }
-    .topbar {
+
+    .shell {
+      min-height: 100vh;
       display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 12px;
-      align-items: center;
-      padding: 14px 16px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-      box-shadow: var(--shadow);
+      grid-template-columns: 236px minmax(0, 1fr);
     }
-    h1 {
-      margin: 0;
-      font-size: 22px;
-      line-height: 1.2;
-      letter-spacing: 0;
+
+    .sidebar {
+      background: #17202b;
+      color: #e5edf5;
+      padding: 18px 14px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      border-right: 1px solid rgba(255,255,255,.08);
     }
-    .status-row {
+
+    .brand {
       display: flex;
       align-items: center;
       gap: 10px;
+      padding: 6px 6px 18px;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: #0f766e;
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .brand-title {
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .brand-sub {
+      color: #a8b5c3;
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .nav {
+      display: grid;
+      gap: 6px;
+      margin-top: 18px;
+    }
+
+    .nav a {
+      color: #cbd5e1;
+      text-decoration: none;
+      padding: 10px 10px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+    }
+
+    .nav a.active, .nav a:hover {
+      background: rgba(255,255,255,.08);
+      color: #fff;
+    }
+
+    .main {
+      min-width: 0;
+      padding: 16px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 16px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    h1, h2, h3 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: 22px; line-height: 1.2; }
+    h2 { font-size: 16px; }
+    h3 { font-size: 14px; }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
       margin-top: 8px;
       color: var(--muted);
       font-size: 13px;
-      flex-wrap: wrap;
     }
+
     .dot {
       width: 10px;
       height: 10px;
       border-radius: 999px;
       background: var(--muted);
       display: inline-block;
+      flex: 0 0 auto;
     }
-    .dot.ok { background: var(--ok); }
-    .dot.bad { background: var(--bad); }
-    .dot.wait { background: var(--warn); }
-    .actions {
+
+    .dot.ok { background: var(--green); }
+    .dot.bad { background: var(--red); }
+    .dot.wait { background: var(--orange); }
+
+    .toolbar {
       display: flex;
-      gap: 8px;
-      align-items: center;
       flex-wrap: wrap;
+      gap: 8px;
       justify-content: flex-end;
     }
+
     .btn {
-      border: 1px solid var(--line);
-      background: var(--panel-soft);
-      color: var(--text);
       min-height: 38px;
-      padding: 0 12px;
+      border: 1px solid var(--line);
       border-radius: 8px;
+      padding: 0 12px;
+      background: #fff;
+      color: var(--text);
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
     }
-    .btn.primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
-    }
-    .btn.primary:hover { background: var(--accent-strong); }
+
     .btn:hover { border-color: #9aa8b8; }
-    .layout {
+    .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .btn.primary:hover { background: var(--brand-strong); }
+    .btn.danger { color: var(--red); }
+    .btn.block { width: 100%; }
+
+    .content {
       display: grid;
-      grid-template-columns: 1.25fr .75fr;
+      grid-template-columns: minmax(0, 1.1fr) 360px;
       gap: 12px;
       margin-top: 12px;
+      align-items: start;
     }
+
+    .stack { display: grid; gap: 12px; }
+
     .panel {
-      background: var(--panel);
+      background: var(--surface);
       border: 1px solid var(--line);
       border-radius: 8px;
       box-shadow: var(--shadow);
+      overflow: hidden;
     }
+
     .panel-head {
+      min-height: 48px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
       padding: 12px 14px;
       border-bottom: 1px solid var(--line);
     }
-    .panel-title {
-      font-weight: 700;
-      font-size: 15px;
-    }
+
     .muted { color: var(--muted); font-size: 13px; }
-    .grid {
+
+    .metric-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
       padding: 12px;
     }
-    .card {
-      min-height: 106px;
+
+    .metric {
+      min-height: 112px;
       padding: 12px;
+      border: 1px solid #e3ebf2;
       border-radius: 8px;
-      border: 1px solid #e4eaf2;
-      background: var(--panel-soft);
+      background: var(--surface-soft);
     }
-    .label {
+
+    .metric-label {
       color: var(--muted);
       font-size: 12px;
       margin-bottom: 10px;
     }
-    .value {
+
+    .metric-value {
       font-size: 28px;
       line-height: 1.1;
       font-weight: 800;
       overflow-wrap: anywhere;
-      letter-spacing: 0;
     }
-    .value.small { font-size: 20px; }
-    .meta {
+
+    .metric-value.small { font-size: 20px; }
+
+    .metric-meta {
       margin-top: 8px;
       color: var(--muted);
       font-size: 12px;
-      line-height: 1.4;
+      line-height: 1.45;
       overflow-wrap: anywhere;
     }
-    .settings {
+
+    .status-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .status-card {
+      min-height: 78px;
       padding: 12px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .status-card .name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .status-card .state {
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    .form {
       display: grid;
       gap: 10px;
+      padding: 12px;
     }
+
     .field label {
       display: block;
       color: var(--muted);
       font-size: 12px;
       margin-bottom: 6px;
     }
+
     .field input {
       width: 100%;
       min-height: 38px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 0 10px;
       background: #fff;
       color: var(--text);
+      padding: 0 10px;
     }
-    .rgb-box {
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .control-card {
+      border: 1px solid #e3ebf2;
+      border-radius: 8px;
+      background: var(--surface-soft);
       padding: 12px;
       display: grid;
-      gap: 12px;
+      gap: 10px;
+      min-height: 150px;
     }
-    .swatch-row {
+
+    .control-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .switch-row {
       display: grid;
-      grid-template-columns: 76px 1fr;
-      gap: 12px;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 1fr 54px;
+      gap: 10px;
       align-items: center;
     }
-    .swatch {
-      width: 76px;
-      height: 76px;
-      border-radius: 8px;
-      border: 1px solid var(--line);
-      background: #000;
-    }
+
+    input[type="range"] { width: 100%; accent-color: var(--brand); }
     input[type="color"] {
       width: 100%;
       height: 42px;
       padding: 3px;
-      border-radius: 8px;
       border: 1px solid var(--line);
+      border-radius: 8px;
       background: #fff;
     }
+
+    .rgb-layout {
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+    }
+
+    .swatch {
+      width: 88px;
+      height: 88px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #000;
+    }
+
     .preset-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
     }
+
     .preset {
-      min-height: 38px;
+      min-height: 36px;
       border: 1px solid var(--line);
       border-radius: 8px;
       background: #fff;
       cursor: pointer;
     }
-    .preset[data-color="#000000"] { color: #fff; background: #111827; }
+
+    .preset.off { background: #111827; color: #fff; }
+
     .log {
-      height: 180px;
+      height: 220px;
       overflow: auto;
       padding: 10px 12px;
-      font-family: Consolas, monospace;
+      font-family: Consolas, "Courier New", monospace;
       font-size: 12px;
       line-height: 1.5;
       color: #1f2937;
       background: #fbfdff;
-      border-top: 1px solid var(--line);
     }
-    .log div { border-bottom: 1px solid #edf2f7; padding: 4px 0; }
-    @media (max-width: 880px) {
-      .topbar, .layout { grid-template-columns: 1fr; }
-      .actions { justify-content: flex-start; }
-      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .log div {
+      padding: 5px 0;
+      border-bottom: 1px solid #edf2f7;
+      overflow-wrap: anywhere;
     }
-    @media (max-width: 560px) {
-      .app { padding: 10px; }
-      .grid, .preset-grid { grid-template-columns: 1fr; }
-      .value { font-size: 24px; }
-      .swatch-row { grid-template-columns: 1fr; }
+
+    .topic-list {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+    }
+
+    .topic-item {
+      padding: 8px 10px;
+      border: 1px solid #e3ebf2;
+      border-radius: 8px;
+      background: var(--surface-soft);
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 1080px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; }
+      .nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .content { grid-template-columns: 1fr; }
+      .metric-grid, .status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 640px) {
+      .main { padding: 10px; }
+      .topbar, .status-strip, .metric-grid, .control-grid, .nav { grid-template-columns: 1fr; }
+      .toolbar { justify-content: flex-start; }
+      .metric-value { font-size: 24px; }
+      .rgb-layout { grid-template-columns: 1fr; }
       .swatch { width: 100%; }
+      .preset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
   </style>
 </head>
 <body>
-  <main class="app">
-    <header class="topbar">
-      <div>
-        <h1>ESP32 Remote Monitor</h1>
-        <div class="status-row">
-          <span id="connDot" class="dot bad"></span>
-          <span id="connText">Disconnected</span>
-          <span id="lastSeen">Last message: --</span>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">IoT</div>
+        <div>
+          <div class="brand-title">ESP32 控制台</div>
+          <div class="brand-sub">MQTT Remote</div>
         </div>
       </div>
-      <div class="actions">
-        <button id="connectBtn" class="btn primary" type="button">Connect</button>
-        <button id="disconnectBtn" class="btn" type="button">Disconnect</button>
-      </div>
-    </header>
+      <nav class="nav">
+        <a class="active" href="#overview">总览</a>
+        <a href="#control">控制</a>
+        <a href="#network">连接</a>
+        <a href="#topics">Topic</a>
+      </nav>
+    </aside>
 
-    <section class="layout">
-      <div class="panel">
-        <div class="panel-head">
-          <div class="panel-title">Telemetry</div>
-          <div id="topicLabel" class="muted">home/suzhou/esp32s3-001-test/#</div>
+    <main class="main">
+      <header class="topbar" id="overview">
+        <div>
+          <h1>智能家居远程监控</h1>
+          <div class="status-line">
+            <span id="connDot" class="dot bad"></span>
+            <span id="connText">未连接</span>
+            <span id="deviceOnlineText">设备状态 --</span>
+            <span id="lastSeen">最近消息 --</span>
+          </div>
         </div>
-        <div class="grid">
-          <article class="card">
-            <div class="label">Indoor temperature</div>
-            <div id="sensorTemp" class="value">--</div>
-            <div id="sensorAge" class="meta">--</div>
-          </article>
-          <article class="card">
-            <div class="label">Indoor humidity</div>
-            <div id="sensorHum" class="value">--</div>
-            <div id="sensorState" class="meta">--</div>
-          </article>
-          <article class="card">
-            <div class="label">Weather</div>
-            <div id="weatherDesc" class="value small">--</div>
-            <div id="weatherMeta" class="meta">--</div>
-          </article>
-          <article class="card">
-            <div class="label">Outdoor temperature</div>
-            <div id="weatherTemp" class="value">--</div>
-            <div id="weatherHum" class="meta">--</div>
-          </article>
-          <article class="card">
-            <div class="label">Wi-Fi</div>
-            <div id="wifiState" class="value small">--</div>
-            <div id="wifiMeta" class="meta">--</div>
-          </article>
-          <article class="card">
-            <div class="label">Device</div>
-            <div id="deviceName" class="value small">--</div>
-            <div id="deviceMeta" class="meta">--</div>
-          </article>
+        <div class="toolbar">
+          <button id="connectBtn" class="btn primary" type="button">连接</button>
+          <button id="disconnectBtn" class="btn" type="button">断开</button>
         </div>
-      </div>
+      </header>
 
-      <aside class="panel">
-        <div class="panel-head">
-          <div class="panel-title">MQTT</div>
-          <div id="mqttState" class="muted">idle</div>
+      <section class="status-strip">
+        <article class="status-card">
+          <div class="name"><span id="mqttDot" class="dot bad"></span>MQTT</div>
+          <div id="mqttState" class="state">离线</div>
+        </article>
+        <article class="status-card">
+          <div class="name"><span id="wifiDot" class="dot wait"></span>Wi-Fi</div>
+          <div id="wifiStateMini" class="state">--</div>
+        </article>
+        <article class="status-card">
+          <div class="name"><span id="sensorDot" class="dot wait"></span>传感器</div>
+          <div id="sensorStateMini" class="state">--</div>
+        </article>
+        <article class="status-card">
+          <div class="name"><span id="weatherDot" class="dot wait"></span>天气</div>
+          <div id="weatherStateMini" class="state">--</div>
+        </article>
+      </section>
+
+      <section class="content">
+        <div class="stack">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>环境数据</h2>
+              <div id="telemetryTopic" class="muted">home/suzhou/esp32s3-001-test/telemetry</div>
+            </div>
+            <div class="metric-grid">
+              <article class="metric">
+                <div class="metric-label">室内温度</div>
+                <div id="sensorTemp" class="metric-value">--</div>
+                <div id="sensorAge" class="metric-meta">--</div>
+              </article>
+              <article class="metric">
+                <div class="metric-label">室内湿度</div>
+                <div id="sensorHum" class="metric-value">--</div>
+                <div id="sensorState" class="metric-meta">--</div>
+              </article>
+              <article class="metric">
+                <div class="metric-label">室外天气</div>
+                <div id="weatherDesc" class="metric-value small">--</div>
+                <div id="weatherMeta" class="metric-meta">--</div>
+              </article>
+              <article class="metric">
+                <div class="metric-label">室外温湿度</div>
+                <div id="weatherTemp" class="metric-value">--</div>
+                <div id="weatherHum" class="metric-meta">--</div>
+              </article>
+            </div>
+          </section>
+
+          <section class="panel" id="control">
+            <div class="panel-head">
+              <h2>设备控制</h2>
+              <div id="rgbText" class="muted">#000000</div>
+            </div>
+            <div class="control-grid">
+              <article class="control-card">
+                <div class="control-title">
+                  <h3>RGB 氛围灯</h3>
+                  <span id="rgbStatePill" class="pill">未同步</span>
+                </div>
+                <div class="rgb-layout">
+                  <div id="swatch" class="swatch"></div>
+                  <div class="stack">
+                    <input id="colorInput" type="color" value="#000000">
+                    <div class="preset-grid">
+                      <button class="preset" data-color="#ff0000" type="button">红</button>
+                      <button class="preset" data-color="#00ff00" type="button">绿</button>
+                      <button class="preset" data-color="#0000ff" type="button">蓝</button>
+                      <button class="preset" data-color="#ffffff" type="button">白</button>
+                      <button class="preset" data-color="#ffaa3c" type="button">暖</button>
+                      <button class="preset" data-color="#00ffff" type="button">青</button>
+                      <button class="preset" data-color="#ff00ff" type="button">粉</button>
+                      <button class="preset off" data-color="#000000" type="button">关</button>
+                    </div>
+                    <button id="sendColorBtn" class="btn primary block" type="button">发送 RGB</button>
+                  </div>
+                </div>
+              </article>
+
+              <article class="control-card">
+                <div class="control-title">
+                  <h3>照明开关</h3>
+                  <span id="lightStatePill" class="pill">预留</span>
+                </div>
+                <div class="switch-row">
+                  <button id="lightOnBtn" class="btn primary" type="button">开灯</button>
+                  <button id="lightOffBtn" class="btn" type="button">关灯</button>
+                </div>
+                <div class="range-row">
+                  <input id="lightBrightness" type="range" min="0" max="100" value="60">
+                  <span id="lightBrightnessText" class="muted">60%</span>
+                </div>
+                <button id="sendLightBtn" class="btn block" type="button">发送灯控</button>
+              </article>
+
+              <article class="control-card">
+                <div class="control-title">
+                  <h3>电机控制</h3>
+                  <span id="motorStatePill" class="pill">预留</span>
+                </div>
+                <div class="switch-row">
+                  <button id="motorForwardBtn" class="btn primary" type="button">正转</button>
+                  <button id="motorReverseBtn" class="btn" type="button">反转</button>
+                </div>
+                <div class="range-row">
+                  <input id="motorSpeed" type="range" min="0" max="100" value="40">
+                  <span id="motorSpeedText" class="muted">40%</span>
+                </div>
+                <div class="switch-row">
+                  <button id="motorStopBtn" class="btn danger" type="button">停止</button>
+                  <button id="sendMotorBtn" class="btn" type="button">发送电机</button>
+                </div>
+              </article>
+
+              <article class="control-card">
+                <div class="control-title">
+                  <h3>扩展通道</h3>
+                  <span class="pill">cmd/custom</span>
+                </div>
+                <div class="field">
+                  <label for="customKey">键</label>
+                  <input id="customKey" value="mode">
+                </div>
+                <div class="field">
+                  <label for="customValue">值</label>
+                  <input id="customValue" value="auto">
+                </div>
+                <button id="sendCustomBtn" class="btn block" type="button">发送扩展命令</button>
+              </article>
+            </div>
+          </section>
+
+          <section class="panel" id="network">
+            <div class="panel-head">
+              <h2>设备信息</h2>
+              <div id="deviceName" class="muted">--</div>
+            </div>
+            <div class="metric-grid">
+              <article class="metric">
+                <div class="metric-label">STA IP</div>
+                <div id="wifiIp" class="metric-value small">--</div>
+                <div id="wifiMeta" class="metric-meta">--</div>
+              </article>
+              <article class="metric">
+                <div class="metric-label">运行时间</div>
+                <div id="uptime" class="metric-value small">--</div>
+                <div class="metric-meta">ESP32 启动后累计</div>
+              </article>
+              <article class="metric">
+                <div class="metric-label">剩余堆内存</div>
+                <div id="heap" class="metric-value small">--</div>
+                <div class="metric-meta">内部 RAM</div>
+              </article>
+              <article class="metric">
+                <div class="metric-label">城市</div>
+                <div id="city" class="metric-value small">--</div>
+                <div id="weatherTime" class="metric-meta">--</div>
+              </article>
+            </div>
+          </section>
         </div>
-        <div class="settings">
-          <div class="field">
-            <label for="brokerInput">Broker</label>
-            <input id="brokerInput" value="wss://broker.emqx.io:8084/mqtt">
-          </div>
-          <div class="field">
-            <label for="baseTopicInput">Base topic</label>
-            <input id="baseTopicInput" value="home/suzhou/esp32s3-001-test">
-          </div>
-        </div>
-        <div class="panel-head">
-          <div class="panel-title">RGB</div>
-          <div id="rgbText" class="muted">#000000</div>
-        </div>
-        <div class="rgb-box">
-          <div class="swatch-row">
-            <div id="swatch" class="swatch"></div>
-            <input id="colorInput" type="color" value="#000000">
-          </div>
-          <div class="preset-grid">
-            <button class="preset" data-color="#ff0000" type="button">Red</button>
-            <button class="preset" data-color="#00ff00" type="button">Green</button>
-            <button class="preset" data-color="#0000ff" type="button">Blue</button>
-            <button class="preset" data-color="#ffffff" type="button">White</button>
-            <button class="preset" data-color="#ffaa3c" type="button">Warm</button>
-            <button class="preset" data-color="#00ffff" type="button">Cyan</button>
-            <button class="preset" data-color="#ff00ff" type="button">Pink</button>
-            <button class="preset" data-color="#000000" type="button">Off</button>
-          </div>
-          <button id="sendColorBtn" class="btn primary" type="button">Send RGB</button>
-        </div>
-        <div id="log" class="log"></div>
-      </aside>
-    </section>
-  </main>
+
+        <aside class="stack">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>连接配置</h2>
+              <div class="muted">MQTT over WebSocket</div>
+            </div>
+            <div class="form">
+              <div class="field">
+                <label for="brokerInput">Broker</label>
+                <input id="brokerInput" value="wss://broker.emqx.io:8084/mqtt">
+              </div>
+              <div class="field">
+                <label for="baseTopicInput">Base Topic</label>
+                <input id="baseTopicInput" value="home/suzhou/esp32s3-001-test">
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" id="topics">
+            <div class="panel-head">
+              <h2>Topic 映射</h2>
+              <div id="topicRoot" class="muted">--</div>
+            </div>
+            <div class="topic-list">
+              <div id="topicSub" class="topic-item">--</div>
+              <div id="topicRgb" class="topic-item">--</div>
+              <div id="topicLight" class="topic-item">--</div>
+              <div id="topicMotor" class="topic-item">--</div>
+              <div id="topicCustom" class="topic-item">--</div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>事件日志</h2>
+              <button id="clearLogBtn" class="btn" type="button">清空</button>
+            </div>
+            <div id="log" class="log"></div>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </div>
 
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script>
@@ -340,29 +685,39 @@
     let client = null;
     let baseTopic = els.baseTopicInput.value.trim();
     let currentColor = '#000000';
+    let lightState = false;
+    let motorDirection = 'forward';
+
+    function topic(name) {
+      return baseTopic + name;
+    }
 
     function log(line) {
       const item = document.createElement('div');
-      item.textContent = new Date().toLocaleTimeString('en-US', { hour12: false }) + '  ' + line;
+      item.textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false }) + '  ' + line;
       els.log.prepend(item);
-      while (els.log.children.length > 80) els.log.lastChild.remove();
+      while (els.log.children.length > 90) els.log.lastChild.remove();
+    }
+
+    function setDot(el, state) {
+      el.className = 'dot ' + state;
     }
 
     function setConnection(state, text) {
-      els.connDot.className = 'dot ' + state;
+      setDot(els.connDot, state);
+      setDot(els.mqttDot, state);
       els.connText.textContent = text;
-      els.mqttState.textContent = text.toLowerCase();
+      els.mqttState.textContent = text;
     }
 
     function fmtAge(ms) {
       if (!Number.isFinite(ms) || ms < 0) return '--';
-      if (ms < 1000) return 'just now';
+      if (ms < 1000) return '刚刚';
       const s = Math.floor(ms / 1000);
-      if (s < 60) return s + ' s ago';
+      if (s < 60) return s + ' 秒前';
       const m = Math.floor(s / 60);
-      if (m < 60) return m + ' min ago';
-      const h = Math.floor(m / 60);
-      return h + ' h ago';
+      if (m < 60) return m + ' 分钟前';
+      return Math.floor(m / 60) + ' 小时前';
     }
 
     function fmtUptime(ms) {
@@ -387,41 +742,90 @@
       return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Number(v) || 0)).toString(16).padStart(2, '0')).join('');
     }
 
+    function normalizeBaseTopic() {
+      baseTopic = els.baseTopicInput.value.trim().replace(/\/+$/, '');
+      els.telemetryTopic.textContent = topic('/telemetry');
+      els.topicRoot.textContent = baseTopic;
+      els.topicSub.textContent = 'subscribe: ' + topic('/#');
+      els.topicRgb.textContent = 'RGB: ' + topic('/cmd/rgb') + ' / ' + topic('/state/rgb');
+      els.topicLight.textContent = 'Light: ' + topic('/cmd/light') + ' / ' + topic('/state/light');
+      els.topicMotor.textContent = 'Motor: ' + topic('/cmd/motor') + ' / ' + topic('/state/motor');
+      els.topicCustom.textContent = 'Custom: ' + topic('/cmd/custom');
+    }
+
     function setColor(hex, fromDevice) {
       currentColor = hex.toLowerCase();
       els.colorInput.value = currentColor;
       els.swatch.style.background = currentColor;
-      els.rgbText.textContent = currentColor.toUpperCase() + (fromDevice ? ' synced' : '');
+      els.rgbText.textContent = currentColor.toUpperCase();
+      els.rgbStatePill.textContent = fromDevice ? '已同步' : '待发送';
+    }
+
+    function publishJson(suffix, payload, label) {
+      if (!client || !client.connected) {
+        log(label + ' 未发送：MQTT 离线');
+        return;
+      }
+      const target = topic(suffix);
+      const body = JSON.stringify(payload);
+      client.publish(target, body, { qos: 1, retain: false }, err => {
+        log(err ? label + ' 发送失败' : label + ' -> ' + target + ' ' + body);
+      });
     }
 
     function publishColor(hex) {
-      if (!client || !client.connected) {
-        log('RGB skipped: MQTT offline');
-        return;
-      }
       const rgb = hexToRgb(hex);
-      const topic = baseTopic + '/cmd/rgb';
-      const payload = JSON.stringify({ r: rgb.r, g: rgb.g, b: rgb.b, hex });
-      client.publish(topic, payload, { qos: 1, retain: false }, err => {
-        log(err ? 'RGB publish failed' : 'RGB publish ' + payload);
-      });
+      publishJson('/cmd/rgb', { r: rgb.r, g: rgb.g, b: rgb.b, hex }, 'RGB');
+    }
+
+    function publishLight() {
+      publishJson('/cmd/light', {
+        state: lightState ? 'on' : 'off',
+        brightness: Number(els.lightBrightness.value)
+      }, '灯控');
+      els.lightStatePill.textContent = lightState ? '开' : '关';
+    }
+
+    function publishMotor(action) {
+      publishJson('/cmd/motor', {
+        action,
+        direction: motorDirection,
+        speed: Number(els.motorSpeed.value)
+      }, '电机');
+      els.motorStatePill.textContent = action === 'stop' ? '停止' : motorDirection;
+    }
+
+    function publishCustom() {
+      publishJson('/cmd/custom', {
+        [els.customKey.value.trim() || 'key']: els.customValue.value.trim()
+      }, '扩展');
     }
 
     function updateTelemetry(data) {
       els.sensorTemp.textContent = data.sensor_ok ? Number(data.sensor_temp).toFixed(1) + ' C' : '--';
       els.sensorHum.textContent = data.sensor_ok ? Number(data.sensor_humidity).toFixed(1) + ' %' : '--';
-      els.sensorAge.textContent = 'sensor ' + fmtAge(Number(data.sensor_age));
-      els.sensorState.textContent = data.sensor_ok ? 'sensor ok' : 'sensor waiting';
+      els.sensorAge.textContent = '更新：' + fmtAge(Number(data.sensor_age));
+      els.sensorState.textContent = data.sensor_ok ? 'AHT30 正常' : '等待传感器';
+      els.sensorStateMini.textContent = data.sensor_ok ? '正常' : '等待';
+      setDot(els.sensorDot, data.sensor_ok ? 'ok' : 'wait');
 
       els.weatherDesc.textContent = data.weather_desc || '--';
-      els.weatherMeta.textContent = (data.city || '--') + ' / ' + (data.weather_status || '--') + ' / ' + fmtAge(Number(data.weather_age));
+      els.weatherMeta.textContent = (data.weather_status || '--') + ' / ' + fmtAge(Number(data.weather_age));
       els.weatherTemp.textContent = data.weather_temp ? data.weather_temp + ' C' : '--';
-      els.weatherHum.textContent = data.weather_humidity ? 'humidity ' + data.weather_humidity + ' %, wind ' + (data.wind_scale || '--') : '--';
+      els.weatherHum.textContent = data.weather_humidity ? '湿度 ' + data.weather_humidity + ' %, 风 ' + (data.wind_scale || '--') : '--';
+      els.weatherStateMini.textContent = data.weather_ok ? '正常' : '等待';
+      setDot(els.weatherDot, data.weather_ok ? 'ok' : 'wait');
+      els.city.textContent = data.city || '--';
+      els.weatherTime.textContent = data.weather_time || '--';
 
-      els.wifiState.textContent = data.sta_connected ? 'connected' : 'offline';
-      els.wifiMeta.textContent = (data.sta_ip || '--') + ' / ' + (Number.isFinite(data.wifi_rssi) ? data.wifi_rssi + ' dBm' : '--');
+      els.wifiStateMini.textContent = data.sta_connected ? '已连接' : '离线';
+      els.wifiIp.textContent = data.sta_ip || '--';
+      els.wifiMeta.textContent = Number.isFinite(data.wifi_rssi) ? data.wifi_rssi + ' dBm' : '--';
+      setDot(els.wifiDot, data.sta_connected ? 'ok' : 'bad');
+
       els.deviceName.textContent = data.device || 'esp32';
-      els.deviceMeta.textContent = 'uptime ' + fmtUptime(Number(data.uptime)) + ' / heap ' + Math.round((Number(data.free_heap) || 0) / 1024) + ' KB';
+      els.uptime.textContent = fmtUptime(Number(data.uptime));
+      els.heap.textContent = Math.round((Number(data.free_heap) || 0) / 1024) + ' KB';
 
       if (Number.isFinite(data.rgb_r) && Number.isFinite(data.rgb_g) && Number.isFinite(data.rgb_b)) {
         setColor(rgbToHex(data.rgb_r, data.rgb_g, data.rgb_b), true);
@@ -434,30 +838,57 @@
       }
     }
 
-    function handleMessage(topic, payloadBuffer) {
+    function updateLightState(data) {
+      if (typeof data.state === 'string') {
+        lightState = data.state === 'on';
+        els.lightStatePill.textContent = lightState ? '开' : '关';
+      }
+      if (Number.isFinite(data.brightness)) {
+        els.lightBrightness.value = data.brightness;
+        els.lightBrightnessText.textContent = data.brightness + '%';
+      }
+    }
+
+    function updateMotorState(data) {
+      if (typeof data.direction === 'string') motorDirection = data.direction;
+      if (Number.isFinite(data.speed)) {
+        els.motorSpeed.value = data.speed;
+        els.motorSpeedText.textContent = data.speed + '%';
+      }
+      els.motorStatePill.textContent = data.action || data.state || motorDirection;
+    }
+
+    function handleMessage(rawTopic, payloadBuffer) {
       const payload = payloadBuffer.toString();
-      els.lastSeen.textContent = 'Last message: ' + new Date().toLocaleTimeString('en-US', { hour12: false });
-      log(topic);
+      els.lastSeen.textContent = '最近消息 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
       let data = null;
-      try { data = JSON.parse(payload); } catch (err) { return; }
-      if (topic === baseTopic + '/telemetry') updateTelemetry(data);
-      if (topic === baseTopic + '/state/rgb') updateRgbState(data);
-      if (topic === baseTopic + '/status') {
-        log(data.online ? 'device online' : 'device offline');
+      try {
+        data = JSON.parse(payload);
+      } catch (err) {
+        log(rawTopic + ' 非 JSON');
+        return;
+      }
+
+      if (rawTopic === topic('/telemetry')) updateTelemetry(data);
+      if (rawTopic === topic('/state/rgb')) updateRgbState(data);
+      if (rawTopic === topic('/state/light')) updateLightState(data);
+      if (rawTopic === topic('/state/motor')) updateMotorState(data);
+      if (rawTopic === topic('/status')) {
+        els.deviceOnlineText.textContent = data.online ? '设备在线' : '设备离线';
+        log(data.online ? '设备上线' : '设备离线');
       }
     }
 
     function connect() {
       if (!window.mqtt) {
-        setConnection('bad', 'MQTT.js missing');
+        setConnection('bad', 'MQTT.js 加载失败');
         return;
       }
       if (client) client.end(true);
-      baseTopic = els.baseTopicInput.value.trim().replace(/\/+$/, '');
+      normalizeBaseTopic();
       const broker = els.brokerInput.value.trim();
-      els.topicLabel.textContent = baseTopic + '/#';
-      setConnection('wait', 'Connecting');
-      log('connect ' + broker);
+      setConnection('wait', '连接中');
+      log('连接 ' + broker);
       client = mqtt.connect(broker, {
         clientId: 'web_' + Math.random().toString(16).slice(2),
         clean: true,
@@ -466,21 +897,23 @@
         keepalive: 60
       });
       client.on('connect', () => {
-        setConnection('ok', 'Connected');
-        client.subscribe(baseTopic + '/#', { qos: 0 }, err => log(err ? 'subscribe failed' : 'subscribed ' + baseTopic + '/#'));
+        setConnection('ok', '已连接');
+        client.subscribe(topic('/#'), { qos: 0 }, err => log(err ? '订阅失败' : '订阅 ' + topic('/#')));
       });
-      client.on('reconnect', () => setConnection('wait', 'Reconnecting'));
-      client.on('close', () => setConnection('bad', 'Disconnected'));
-      client.on('error', err => log('error ' + err.message));
+      client.on('reconnect', () => setConnection('wait', '重连中'));
+      client.on('close', () => setConnection('bad', '已断开'));
+      client.on('error', err => log('错误 ' + err.message));
       client.on('message', handleMessage);
     }
 
     els.connectBtn.addEventListener('click', connect);
     els.disconnectBtn.addEventListener('click', () => {
       if (client) client.end(true);
-      setConnection('bad', 'Disconnected');
-      log('disconnect');
+      setConnection('bad', '已断开');
+      log('断开连接');
     });
+    els.clearLogBtn.addEventListener('click', () => { els.log.innerHTML = ''; });
+
     els.colorInput.addEventListener('input', evt => setColor(evt.target.value, false));
     els.sendColorBtn.addEventListener('click', () => publishColor(currentColor));
     document.querySelectorAll('.preset').forEach(btn => {
@@ -490,6 +923,27 @@
       });
     });
 
+    els.lightBrightness.addEventListener('input', () => {
+      els.lightBrightnessText.textContent = els.lightBrightness.value + '%';
+      els.lightStatePill.textContent = '待发送';
+    });
+    els.lightOnBtn.addEventListener('click', () => { lightState = true; els.lightStatePill.textContent = '开'; publishLight(); });
+    els.lightOffBtn.addEventListener('click', () => { lightState = false; els.lightStatePill.textContent = '关'; publishLight(); });
+    els.sendLightBtn.addEventListener('click', publishLight);
+
+    els.motorSpeed.addEventListener('input', () => {
+      els.motorSpeedText.textContent = els.motorSpeed.value + '%';
+      els.motorStatePill.textContent = '待发送';
+    });
+    els.motorForwardBtn.addEventListener('click', () => { motorDirection = 'forward'; publishMotor('run'); });
+    els.motorReverseBtn.addEventListener('click', () => { motorDirection = 'reverse'; publishMotor('run'); });
+    els.motorStopBtn.addEventListener('click', () => publishMotor('stop'));
+    els.sendMotorBtn.addEventListener('click', () => publishMotor('run'));
+
+    els.sendCustomBtn.addEventListener('click', publishCustom);
+    els.baseTopicInput.addEventListener('change', normalizeBaseTopic);
+
+    normalizeBaseTopic();
     setColor(currentColor, false);
     connect();
   </script>
