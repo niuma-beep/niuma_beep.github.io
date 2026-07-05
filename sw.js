@@ -1,4 +1,4 @@
-const CACHE_NAME = "esp32-remote-console-v3";
+const CACHE_NAME = "esp32-remote-console-v5";
 const APP_SHELL = [
   "./",
   "index.html",

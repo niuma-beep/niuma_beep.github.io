@@ -40,15 +40,18 @@
     button, input { font: inherit; }
     .app {
       min-height: 100vh;
-      display: grid;
-      grid-template-columns: 300px minmax(0, 1fr);
+      width: 100%;
+      display: flex;
+      align-items: stretch;
     }
     .sidebar {
+      width: 300px;
+      flex: 0 0 300px;
       background: var(--nav);
       color: #e5edf5;
       padding: 16px;
-      display: grid;
-      grid-template-rows: auto auto minmax(0,1fr);
+      display: flex;
+      flex-direction: column;
       gap: 14px;
       min-height: 100vh;
     }
@@ -105,6 +108,9 @@
       display: grid;
       gap: 10px;
     }
+    .add-device-action {
+      display: flex;
+    }
     .field label {
       display: block;
       color: var(--muted);
@@ -146,10 +152,11 @@
     .btn.block { width: 100%; }
     .btn.small { min-height: 32px; padding: 0 10px; font-size: 13px; }
     .devices {
-      display: grid;
+      display: flex;
+      flex-direction: column;
       gap: 8px;
       overflow: auto;
-      align-content: start;
+      min-height: 0;
     }
     .device-btn {
       border: 1px solid rgba(255,255,255,.1);
@@ -159,6 +166,7 @@
       padding: 10px;
       text-align: left;
       cursor: pointer;
+      min-height: 74px;
     }
     .device-btn.active {
       background: rgba(15,118,110,.28);
@@ -177,13 +185,37 @@
       font-size: 12px;
       overflow-wrap: anywhere;
     }
-    .device-overview-grid {
+    .device-list-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .device-thumb {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      place-items: center;
+      flex: 0 0 auto;
+      background: rgba(45,212,191,.16);
+      color: #5eead4;
+      border: 1px solid rgba(45,212,191,.28);
+    }
+    .device-list-main {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .device-overview-grid {
+      display: flex;
+      flex-wrap: wrap;
       gap: 12px;
+      align-items: stretch;
     }
     .device-card-btn {
-      min-height: 116px;
+      width: 172px;
+      min-height: 172px;
+      aspect-ratio: 1;
       border: 1px solid var(--line);
       border-radius: 8px;
       background: var(--panel);
@@ -192,9 +224,10 @@
       text-align: left;
       cursor: pointer;
       box-shadow: var(--shadow);
-      display: grid;
-      align-content: center;
-      gap: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
     }
     .device-card-btn:hover {
       border-color: rgba(15,118,110,.5);
@@ -205,6 +238,21 @@
       gap: 8px;
       color: var(--muted);
       font-size: 13px;
+    }
+    .device-card-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: #e6f7f4;
+      color: var(--brand);
+      border: 1px solid #c7ebe5;
+    }
+    .device-card-title {
+      font-weight: 800;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
     }
     .view[hidden] {
       display: none;
@@ -262,6 +310,8 @@
     .dot.bad { background: var(--red); }
     .dot.wait { background: var(--amber); }
     .main {
+      flex: 1 1 auto;
+      width: 100%;
       min-width: 0;
       padding: 16px;
     }
@@ -297,6 +347,7 @@
       font-size: 13px;
     }
     .region {
+      width: 100%;
       margin-top: 12px;
       display: grid;
       gap: 10px;
@@ -309,11 +360,12 @@
       padding: 0 4px;
     }
     .grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      display: flex;
+      flex-wrap: wrap;
       gap: 12px;
     }
-    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid > .card { flex: 1 1 220px; }
+    .grid.two > .card { flex-basis: 300px; }
     .card {
       min-height: 112px;
       padding: 14px;
@@ -354,12 +406,24 @@
       gap: 12px;
     }
     .layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 360px;
+      display: flex;
+      flex-wrap: wrap;
       gap: 12px;
       align-items: start;
     }
-    .stack { display: grid; gap: 12px; }
+    .layout > .stack:first-child {
+      flex: 1 1 620px;
+      min-width: 0;
+    }
+    .layout > aside.stack {
+      flex: 0 1 420px;
+      min-width: 320px;
+    }
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
     .form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -426,21 +490,42 @@
       font-size: 13px;
     }
     @media (max-width: 1180px) {
-      .app { grid-template-columns: 1fr; }
-      .sidebar { min-height: auto; }
+      .app { flex-direction: column; }
+      .sidebar {
+        width: 100%;
+        flex-basis: auto;
+        min-height: auto;
+      }
       .devices { max-height: 260px; }
-      .layout { grid-template-columns: 1fr; }
+      .layout > .stack:first-child,
+      .layout > aside.stack {
+        flex-basis: 100%;
+        min-width: 0;
+      }
       .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 680px) {
       .main { padding: 10px; }
       .hero, .region-head { align-items: flex-start; flex-direction: column; }
+      .device-overview-grid { gap: 10px; }
+      .device-card-btn {
+        width: calc(50% - 5px);
+        min-height: 148px;
+      }
+      .device-card-icon {
+        width: 46px;
+        height: 46px;
+      }
+      .grid > .card, .grid.two > .card { flex-basis: 100%; }
       .grid, .grid.two, .form-grid { grid-template-columns: 1fr; }
       .rgb { grid-template-columns: 1fr; }
       .swatch { width: 100%; }
       .btn { width: 100%; }
       .modal-actions { flex-direction: column-reverse; }
       .value { font-size: 23px; }
+    }
+    @media (max-width: 420px) {
+      .device-card-btn { width: 100%; }
     }
   </style>
 </head>
@@ -507,8 +592,7 @@
         <button id="disconnectBtn" class="btn block" type="button"><span class="btn-content"><svg class="icon sm"><use href="#icon-plug"></use></svg>&#x65ad;&#x5f00;&#x8fde;&#x63a5;</span></button>
       </section>
 
-      <section class="side-box">
-        <h3 class="section-title"><svg class="icon sm"><use href="#icon-plus"></use></svg>&#x6dfb;&#x52a0;&#x8bbe;&#x5907;</h3>
+      <section class="add-device-action">
         <button id="openAddDeviceBtn" class="btn primary block" type="button"><span class="btn-content"><svg class="icon sm"><use href="#icon-plus"></use></svg>&#x6dfb;&#x52a0;&#x8bbe;&#x5907;</span></button>
       </section>
 
@@ -703,7 +787,7 @@
     const SELECTED_KEY = "esp32_selected_device";
     const TOPIC_PREFIX = "iot/v1/devices";
     const DEFAULT_BROKER = "wss://broker.emqx.io:8084/mqtt";
-    const OFFLINE_TIMEOUT_MS = 5000;
+    const OFFLINE_TIMEOUT_MS = 12000;
     const T = {
       noDevice: "\u672a\u9009\u62e9\u8bbe\u5907",
       noDevices: "\u6682\u65e0\u8bbe\u5907",
@@ -722,7 +806,7 @@
       subscribe: "\u8ba2\u9605 ",
       subscribeFail: "\u8ba2\u9605\u5931\u8d25 ",
       nonJson: "\u975e JSON \u6d88\u606f",
-      heartbeatOffline: "\u8d85\u8fc7 5 \u79d2\u672a\u6536\u5230\u6d88\u606f\uff0c\u5224\u5b9a\u79bb\u7ebf",
+      heartbeatOffline: "\u8d85\u8fc7 12 \u79d2\u672a\u6536\u5230\u6d88\u606f\uff0c\u5224\u5b9a\u79bb\u7ebf",
       recovered: "\u6062\u590d\u5728\u7ebf",
       last: "\u6700\u8fd1\u6d88\u606f ",
       synced: " \u5df2\u540c\u6b65",
@@ -845,7 +929,8 @@
         button.type = "button";
         button.className = "device-card-btn";
         button.innerHTML =
-          '<div class="device-name"><span>' + escapeHtml(device.name || device.device_id) + '</span></div>' +
+          '<div class="device-card-icon"><svg class="icon"><use href="#icon-sensor"></use></svg></div>' +
+          '<div class="device-card-title">' + escapeHtml(device.name || device.device_id) + '</div>' +
           '<div class="device-card-status"><i class="dot ' + status.dot + '"></i><span>' + status.text + '</span></div>';
         button.addEventListener("click", () => selectDevice(device.device_id));
         els.mainDeviceGrid.appendChild(button);
@@ -867,8 +952,9 @@
         button.type = "button";
         button.className = "device-btn" + (device.device_id === selectedId ? " active" : "");
         button.innerHTML =
-          '<div class="device-name"><span>' + escapeHtml(device.name || device.device_id) + '</span><i class="dot ' + status.dot + '"></i></div>' +
-          '<div class="device-meta">' + status.text + '</div>';
+          '<div class="device-list-row"><div class="device-thumb"><svg class="icon sm"><use href="#icon-sensor"></use></svg></div>' +
+          '<div class="device-list-main"><div class="device-name"><span>' + escapeHtml(device.name || device.device_id) + '</span><i class="dot ' + status.dot + '"></i></div>' +
+          '<div class="device-meta">' + status.text + '</div></div></div>';
         button.addEventListener("click", () => selectDevice(device.device_id));
         els.deviceList.appendChild(button);
       });
