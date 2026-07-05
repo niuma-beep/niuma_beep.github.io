@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ESP32 &#x8fdc;&#x7a0b;&#x8bbe;&#x5907;&#x7ba1;&#x7406;</title>
   <meta name="theme-color" content="#0f766e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="ESP32 管理">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -458,6 +462,7 @@
         </div>
         <div class="status-line">
           <button id="resubBtn" class="btn" type="button"><span class="btn-content"><svg class="icon sm"><use href="#icon-topic"></use></svg>&#x91cd;&#x65b0;&#x8ba2;&#x9605;</span></button>
+          <button id="installAppBtn" class="btn" type="button" hidden><span class="btn-content"><svg class="icon sm"><use href="#icon-device"></use></svg>&#x5b89;&#x88c5;APP</span></button>
           <button id="removeDeviceBtn" class="btn danger" type="button"><span class="btn-content"><svg class="icon sm"><use href="#icon-device"></use></svg>&#x5220;&#x9664;&#x8bbe;&#x5907;</span></button>
         </div>
       </header>
@@ -599,7 +604,7 @@
     const SELECTED_KEY = "esp32_selected_device";
     const TOPIC_PREFIX = "iot/v1/devices";
     const DEFAULT_BROKER = "wss://broker.emqx.io:8084/mqtt";
-    const OFFLINE_TIMEOUT_MS = 8000;
+    const OFFLINE_TIMEOUT_MS = 5000;
     const T = {
       noDevice: "\u672a\u9009\u62e9\u8bbe\u5907",
       noDevices: "\u6682\u65e0\u8bbe\u5907\uff0c\u8bf7\u5728\u4e0a\u65b9\u6dfb\u52a0\u8bbe\u5907 ID",
@@ -618,7 +623,7 @@
       subscribe: "\u8ba2\u9605 ",
       subscribeFail: "\u8ba2\u9605\u5931\u8d25 ",
       nonJson: "\u975e JSON \u6d88\u606f",
-      heartbeatOffline: "\u8d85\u8fc7 8 \u79d2\u672a\u6536\u5230\u6d88\u606f\uff0c\u5224\u5b9a\u79bb\u7ebf",
+      heartbeatOffline: "\u8d85\u8fc7 5 \u79d2\u672a\u6536\u5230\u6d88\u606f\uff0c\u5224\u5b9a\u79bb\u7ebf",
       recovered: "\u6062\u590d\u5728\u7ebf",
       last: "\u6700\u8fd1\u6d88\u606f ",
       synced: " \u5df2\u540c\u6b65",
@@ -631,6 +636,7 @@
     let selectedId = localStorage.getItem(SELECTED_KEY) || (devices[0] && devices[0].device_id) || "";
     let stateByDevice = {};
     let currentColor = "#000000";
+    let deferredInstallPrompt = null;
 
     function loadDevices() {
       try {
@@ -746,8 +752,7 @@
         return;
       }
       const snap = stateByDevice[device.device_id] || {};
-      els.deviceText.textContent = snap.online === true ? T.deviceOnline : snap.online === false ? T.deviceOffline : T.deviceWaiting;
-      els.lastSeenText.textContent = snap.last_seen ? T.last + fmtAge(Date.now() - snap.last_seen) : "\u6700\u8fd1\u6d88\u606f --";
+      updateSelectedDeviceStatus();
       els.selectedTopic.textContent = baseTopic(device.device_id);
       els.telemetryTopic.textContent = topic(device.device_id, "/telemetry");
       updateTopics(device.device_id);
@@ -780,6 +785,17 @@
       els.weatherMeta.textContent = data.weather_temp ? data.weather_temp + " C / " + (data.weather_humidity || "--") + " %" : "--";
       els.cityValue.textContent = data.city || "--";
       els.weatherTime.textContent = data.weather_time || "--";
+    }
+    function updateSelectedDeviceStatus() {
+      const device = selectedDevice();
+      if (!device) {
+        els.deviceText.textContent = T.noDevice;
+        els.lastSeenText.textContent = "\u6700\u8fd1\u6d88\u606f --";
+        return;
+      }
+      const snap = stateByDevice[device.device_id] || {};
+      els.deviceText.textContent = snap.online === true ? T.deviceOnline : snap.online === false ? T.deviceOffline : T.deviceWaiting;
+      els.lastSeenText.textContent = snap.last_seen ? T.last + fmtAge(Date.now() - snap.last_seen) : "\u6700\u8fd1\u6d88\u606f --";
     }
     function connectMqtt() {
       if (!window.mqtt) {
@@ -825,7 +841,9 @@
       if (!matched) return;
       const payload = payloadBuffer.toString();
       const snap = stateByDevice[matched.device_id] || {};
+      const wasOffline = snap.online === false;
       snap.last_seen = Date.now();
+      snap.offline_logged = false;
       let data = null;
       try {
         data = JSON.parse(payload);
@@ -848,6 +866,9 @@
         }
       } else if (rawTopic.endsWith("/ack")) {
         log("\u6267\u884c\u56de\u6267 " + payload);
+      }
+      if (wasOffline && snap.online === true) {
+        log((matched.name || matched.device_id) + " " + T.recovered);
       }
       stateByDevice[matched.device_id] = snap;
       render();
@@ -925,6 +946,14 @@
     els.addDeviceBtn.addEventListener("click", addDevice);
     els.removeDeviceBtn.addEventListener("click", removeDevice);
     els.clearLogBtn.addEventListener("click", () => { els.log.innerHTML = ""; });
+    els.installAppBtn.addEventListener("click", async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice.catch(() => null);
+      log(choice && choice.outcome === "accepted" ? "PWA \u5df2\u5f00\u59cb\u5b89\u88c5" : "PWA \u5b89\u88c5\u5df2\u53d6\u6d88");
+      deferredInstallPrompt = null;
+      els.installAppBtn.hidden = true;
+    });
     els.colorInput.addEventListener("input", evt => setColor(evt.target.value, false));
     els.sendColorBtn.addEventListener("click", () => publishColor(currentColor));
     els.sendCustomBtn.addEventListener("click", () => {
@@ -943,12 +972,27 @@
     render();
     setColor(currentColor, false);
     connectMqtt();
+    setInterval(() => {
+      checkDeviceHeartbeat();
+      updateSelectedDeviceStatus();
+    }, 1000);
 
     if ("serviceWorker" in navigator && location.protocol === "https:") {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("sw.js").catch(err => log("PWA \u6ce8\u518c\u5931\u8d25 " + err.message));
+        navigator.serviceWorker.register("sw.js").then(() => log("PWA \u5df2\u51c6\u5907")).catch(err => log("PWA \u6ce8\u518c\u5931\u8d25 " + err.message));
       });
     }
+    window.addEventListener("beforeinstallprompt", evt => {
+      evt.preventDefault();
+      deferredInstallPrompt = evt;
+      els.installAppBtn.hidden = false;
+      log("PWA \u53ef\u5b89\u88c5");
+    });
+    window.addEventListener("appinstalled", () => {
+      deferredInstallPrompt = null;
+      els.installAppBtn.hidden = true;
+      log("PWA \u5df2\u5b89\u88c5");
+    });
   </script>
 </body>
 </html>
