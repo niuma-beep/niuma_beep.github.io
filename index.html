@@ -177,6 +177,79 @@
       font-size: 12px;
       overflow-wrap: anywhere;
     }
+    .device-overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .device-card-btn {
+      min-height: 116px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 14px;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      display: grid;
+      align-content: center;
+      gap: 10px;
+    }
+    .device-card-btn:hover {
+      border-color: rgba(15,118,110,.5);
+    }
+    .device-card-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .view[hidden] {
+      display: none;
+    }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      background: rgba(17,24,39,.45);
+    }
+    .modal-backdrop[hidden] {
+      display: none;
+    }
+    .modal {
+      width: min(460px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 24px 70px rgba(17,24,39,.28);
+      overflow: hidden;
+    }
+    .modal-head {
+      min-height: 52px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #fbfdff;
+    }
+    .modal-body {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 0 16px 16px;
+    }
     .dot {
       width: 10px;
       height: 10px;
@@ -366,6 +439,7 @@
       .rgb { grid-template-columns: 1fr; }
       .swatch { width: 100%; }
       .btn { width: 100%; }
+      .modal-actions { flex-direction: column-reverse; }
       .value { font-size: 23px; }
     }
   </style>
@@ -435,15 +509,7 @@
 
       <section class="side-box">
         <h3 class="section-title"><svg class="icon sm"><use href="#icon-plus"></use></svg>&#x6dfb;&#x52a0;&#x8bbe;&#x5907;</h3>
-        <div class="field">
-          <label for="deviceNameInput">&#x8bbe;&#x5907;&#x540d;&#x79f0;</label>
-          <input id="deviceNameInput" placeholder="&#x5367;&#x5ba4;&#x4f20;&#x611f;&#x5668;">
-        </div>
-        <div class="field">
-          <label for="deviceIdInput">&#x8bbe;&#x5907; ID</label>
-          <input id="deviceIdInput" placeholder="esp32s3-34B7DA12ABCD">
-        </div>
-        <button id="addDeviceBtn" class="btn primary block" type="button"><span class="btn-content"><svg class="icon sm"><use href="#icon-plus"></use></svg>&#x6dfb;&#x52a0;&#x8bbe;&#x5907;</span></button>
+        <button id="openAddDeviceBtn" class="btn primary block" type="button"><span class="btn-content"><svg class="icon sm"><use href="#icon-plus"></use></svg>&#x6dfb;&#x52a0;&#x8bbe;&#x5907;</span></button>
       </section>
 
       <section class="devices" id="deviceList"></section>
@@ -461,12 +527,22 @@
           </div>
         </div>
         <div class="status-line">
+          <button id="backToListBtn" class="btn" type="button" hidden><span class="btn-content"><svg class="icon sm"><use href="#icon-device"></use></svg>&#x8bbe;&#x5907;&#x5217;&#x8868;</span></button>
           <button id="resubBtn" class="btn" type="button"><span class="btn-content"><svg class="icon sm"><use href="#icon-topic"></use></svg>&#x91cd;&#x65b0;&#x8ba2;&#x9605;</span></button>
           <button id="installAppBtn" class="btn" type="button" hidden><span class="btn-content"><svg class="icon sm"><use href="#icon-device"></use></svg>&#x5b89;&#x88c5;APP</span></button>
           <button id="removeDeviceBtn" class="btn danger" type="button"><span class="btn-content"><svg class="icon sm"><use href="#icon-device"></use></svg>&#x5220;&#x9664;&#x8bbe;&#x5907;</span></button>
         </div>
       </header>
 
+      <section id="deviceListView" class="region view">
+        <div class="region-head">
+          <h2 class="section-title"><svg class="icon"><use href="#icon-device"></use></svg>&#x8bbe;&#x5907;&#x5217;&#x8868;</h2>
+          <div id="deviceCountText" class="muted">--</div>
+        </div>
+        <div id="mainDeviceGrid" class="device-overview-grid"></div>
+      </section>
+
+      <div id="deviceDetailView" class="view" hidden>
       <section class="region">
         <div class="region-head">
           <h2 class="section-title"><svg class="icon"><use href="#icon-device"></use></svg>&#x8bbe;&#x5907;&#x6982;&#x89c8;</h2>
@@ -595,7 +671,30 @@
           </section>
         </aside>
       </section>
+      </div>
     </main>
+  </div>
+
+  <div id="addDeviceModal" class="modal-backdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="addDeviceTitle">
+      <div class="modal-head">
+        <h2 id="addDeviceTitle" class="section-title"><svg class="icon"><use href="#icon-plus"></use></svg>&#x6dfb;&#x52a0;&#x8bbe;&#x5907;</h2>
+        <button id="cancelAddDeviceBtn" class="btn small" type="button">&#x53d6;&#x6d88;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="deviceNameInput">&#x8bbe;&#x5907;&#x540d;&#x79f0;</label>
+          <input id="deviceNameInput" placeholder="&#x5367;&#x5ba4;&#x4f20;&#x611f;&#x5668;">
+        </div>
+        <div class="field">
+          <label for="deviceIdInput">&#x8bbe;&#x5907; ID</label>
+          <input id="deviceIdInput" placeholder="esp32s3-34B7DA12ABCD">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="addDeviceBtn" class="btn primary" type="button"><span class="btn-content"><svg class="icon sm"><use href="#icon-plus"></use></svg>&#x6dfb;&#x52a0;&#x8bbe;&#x5907;</span></button>
+      </div>
+    </section>
   </div>
 
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -607,7 +706,7 @@
     const OFFLINE_TIMEOUT_MS = 5000;
     const T = {
       noDevice: "\u672a\u9009\u62e9\u8bbe\u5907",
-      noDevices: "\u6682\u65e0\u8bbe\u5907\uff0c\u8bf7\u5728\u4e0a\u65b9\u6dfb\u52a0\u8bbe\u5907 ID",
+      noDevices: "\u6682\u65e0\u8bbe\u5907",
       mqttDisconnected: "MQTT \u672a\u8fde\u63a5",
       mqttConnecting: "MQTT \u8fde\u63a5\u4e2d",
       mqttConnected: "MQTT \u5df2\u8fde\u63a5",
@@ -633,7 +732,7 @@
     const els = Object.fromEntries(Array.from(document.querySelectorAll("[id]")).map(el => [el.id, el]));
     let client = null;
     let devices = loadDevices();
-    let selectedId = localStorage.getItem(SELECTED_KEY) || (devices[0] && devices[0].device_id) || "";
+    let selectedId = "";
     let stateByDevice = {};
     let currentColor = "#000000";
     let deferredInstallPrompt = null;
@@ -649,6 +748,7 @@
     function saveDevices() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(devices));
       if (selectedId) localStorage.setItem(SELECTED_KEY, selectedId);
+      else localStorage.removeItem(SELECTED_KEY);
     }
     function normalizeDeviceId(value) {
       return (value || "").trim().replace(/\s+/g, "");
@@ -712,6 +812,45 @@
       els.swatch.style.background = currentColor;
       els.rgbText.textContent = currentColor.toUpperCase() + (fromDevice ? T.synced : T.pending);
     }
+    function deviceStatusInfo(snap) {
+      if (snap.online === true) return { dot: "ok", text: T.deviceOnline };
+      if (snap.online === false) return { dot: "bad", text: T.deviceOffline };
+      return { dot: "wait", text: T.deviceWaiting };
+    }
+    function selectDevice(deviceId) {
+      selectedId = deviceId;
+      saveDevices();
+      subscribeAll();
+      render();
+    }
+    function showDeviceList() {
+      selectedId = "";
+      saveDevices();
+      render();
+    }
+    function renderMainDeviceGrid() {
+      els.mainDeviceGrid.innerHTML = "";
+      els.deviceCountText.textContent = devices.length ? devices.length + " \u4e2a\u8bbe\u5907" : T.noDevices;
+      if (!devices.length) {
+        const empty = document.createElement("div");
+        empty.className = "card";
+        empty.textContent = T.noDevices;
+        els.mainDeviceGrid.appendChild(empty);
+        return;
+      }
+      devices.forEach(device => {
+        const snap = stateByDevice[device.device_id] || {};
+        const status = deviceStatusInfo(snap);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "device-card-btn";
+        button.innerHTML =
+          '<div class="device-name"><span>' + escapeHtml(device.name || device.device_id) + '</span></div>' +
+          '<div class="device-card-status"><i class="dot ' + status.dot + '"></i><span>' + status.text + '</span></div>';
+        button.addEventListener("click", () => selectDevice(device.device_id));
+        els.mainDeviceGrid.appendChild(button);
+      });
+    }
     function renderDeviceList() {
       els.deviceList.innerHTML = "";
       if (!devices.length) {
@@ -723,25 +862,26 @@
       }
       devices.forEach(device => {
         const snap = stateByDevice[device.device_id] || {};
-        const online = snap.online === true ? "ok" : snap.online === false ? "bad" : "wait";
+        const status = deviceStatusInfo(snap);
         const button = document.createElement("button");
         button.type = "button";
         button.className = "device-btn" + (device.device_id === selectedId ? " active" : "");
         button.innerHTML =
-          '<div class="device-name"><span>' + escapeHtml(device.name || device.device_id) + '</span><i class="dot ' + online + '"></i></div>' +
-          '<div class="device-meta">' + escapeHtml(device.device_id) + '</div>';
-        button.addEventListener("click", () => {
-          selectedId = device.device_id;
-          saveDevices();
-          subscribeAll();
-          render();
-        });
+          '<div class="device-name"><span>' + escapeHtml(device.name || device.device_id) + '</span><i class="dot ' + status.dot + '"></i></div>' +
+          '<div class="device-meta">' + status.text + '</div>';
+        button.addEventListener("click", () => selectDevice(device.device_id));
         els.deviceList.appendChild(button);
       });
     }
     function render() {
       const device = selectedDevice();
       renderDeviceList();
+      renderMainDeviceGrid();
+      els.deviceListView.hidden = !!device;
+      els.deviceDetailView.hidden = !device;
+      els.backToListBtn.hidden = !device;
+      els.resubBtn.hidden = !device;
+      els.removeDeviceBtn.hidden = !device;
       if (!device) {
         els.deviceText.textContent = T.noDevice;
         els.lastSeenText.textContent = "\u6700\u8fd1\u6d88\u606f --";
@@ -915,15 +1055,17 @@
         return;
       }
       if (devices.some(d => d.device_id === deviceId)) {
-        selectedId = deviceId;
+        selectedId = "";
+        hideAddDeviceModal();
         saveDevices();
         render();
         return;
       }
       devices.push({ name: els.deviceNameInput.value.trim() || deviceId, device_id: deviceId });
-      selectedId = deviceId;
+      selectedId = "";
       els.deviceNameInput.value = "";
       els.deviceIdInput.value = "";
+      hideAddDeviceModal();
       saveDevices();
       subscribeAll();
       render();
@@ -934,14 +1076,35 @@
       if (!device) return;
       devices = devices.filter(d => d.device_id !== device.device_id);
       delete stateByDevice[device.device_id];
-      selectedId = (devices[0] && devices[0].device_id) || "";
+      selectedId = "";
       saveDevices();
       render();
       log(T.removed + device.device_id);
     }
+    function showAddDeviceModal() {
+      els.addDeviceModal.hidden = false;
+      setTimeout(() => els.deviceIdInput.focus(), 0);
+    }
+    function hideAddDeviceModal() {
+      els.addDeviceModal.hidden = true;
+    }
 
     els.connectBtn.addEventListener("click", connectMqtt);
     els.disconnectBtn.addEventListener("click", disconnectMqtt);
+    els.openAddDeviceBtn.addEventListener("click", showAddDeviceModal);
+    els.cancelAddDeviceBtn.addEventListener("click", hideAddDeviceModal);
+    els.addDeviceModal.addEventListener("click", evt => {
+      if (evt.target === els.addDeviceModal) hideAddDeviceModal();
+    });
+    [els.deviceNameInput, els.deviceIdInput].forEach(input => {
+      input.addEventListener("keydown", evt => {
+        if (evt.key === "Enter") addDevice();
+      });
+    });
+    window.addEventListener("keydown", evt => {
+      if (evt.key === "Escape" && !els.addDeviceModal.hidden) hideAddDeviceModal();
+    });
+    els.backToListBtn.addEventListener("click", showDeviceList);
     els.resubBtn.addEventListener("click", subscribeAll);
     els.addDeviceBtn.addEventListener("click", addDevice);
     els.removeDeviceBtn.addEventListener("click", removeDevice);
