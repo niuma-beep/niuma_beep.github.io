@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ESP32 &#x8fdc;&#x7a0b;&#x8bbe;&#x5907;&#x7ba1;&#x7406;</title>
+  <meta name="theme-color" content="#0f766e">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
   <style>
     :root {
       --bg: #eef2f6;
@@ -419,11 +422,9 @@
 
       <section class="side-box">
         <h3 class="section-title"><svg class="icon sm"><use href="#icon-plug"></use></svg>&#x8fde;&#x63a5;&#x914d;&#x7f6e;</h3>
-        <div class="field">
-          <label for="brokerInput">MQTT &#x670d;&#x52a1;&#x5668;&#x5730;&#x5740;</label>
-          <input id="brokerInput" value="wss://broker.emqx.io:8084/mqtt">
-        </div>
-        <button id="connectBtn" class="btn primary block" type="button"><span class="btn-content"><svg class="icon sm"><use href="#icon-cloud"></use></svg>&#x8fde;&#x63a5; MQTT</span></button>
+        <div class="muted">&#x9875;&#x9762;&#x6253;&#x5f00;&#x540e;&#x4f1a;&#x81ea;&#x52a8;&#x8fde;&#x63a5;&#x4e91;&#x7aef; MQTT&#xff0c;&#x7528;&#x6237;&#x4e0d;&#x9700;&#x8981;&#x9009;&#x62e9;&#x670d;&#x52a1;&#x5668;&#x3002;</div>
+        <div id="brokerText" class="device-meta">--</div>
+        <button id="connectBtn" class="btn primary block" type="button"><span class="btn-content"><svg class="icon sm"><use href="#icon-cloud"></use></svg>&#x91cd;&#x65b0;&#x8fde;&#x63a5;</span></button>
         <button id="disconnectBtn" class="btn block" type="button"><span class="btn-content"><svg class="icon sm"><use href="#icon-plug"></use></svg>&#x65ad;&#x5f00;&#x8fde;&#x63a5;</span></button>
       </section>
 
@@ -596,6 +597,7 @@
     const STORAGE_KEY = "esp32_mqtt_devices_v2";
     const SELECTED_KEY = "esp32_selected_device";
     const TOPIC_PREFIX = "iot/v1/devices";
+    const DEFAULT_BROKER = "wss://broker.emqx.io:8084/mqtt";
     const T = {
       noDevice: "\u672a\u9009\u62e9\u8bbe\u5907",
       noDevices: "\u6682\u65e0\u8bbe\u5907\uff0c\u8bf7\u5728\u4e0a\u65b9\u6dfb\u52a0\u8bbe\u5907 ID",
@@ -782,7 +784,7 @@
         return;
       }
       if (client) client.end(true);
-      const broker = els.brokerInput.value.trim();
+      const broker = DEFAULT_BROKER;
       setMqttState("wait", T.mqttConnecting);
       log("\u8fde\u63a5 " + broker);
       client = mqtt.connect(broker, {
@@ -917,9 +919,17 @@
       });
     });
 
+    els.brokerText.textContent = DEFAULT_BROKER;
     setMqttState("bad", T.mqttDisconnected);
     render();
     setColor(currentColor, false);
+    connectMqtt();
+
+    if ("serviceWorker" in navigator && location.protocol === "https:") {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(err => log("PWA \u6ce8\u518c\u5931\u8d25 " + err.message));
+      });
+    }
   </script>
 </body>
 </html>
